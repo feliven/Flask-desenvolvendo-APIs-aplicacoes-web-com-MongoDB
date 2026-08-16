@@ -117,9 +117,30 @@ def update_produto(token, id_produto):
 # RF: O sistema deve permitir a delecao de um unico produto e produto existente
 @main_bp.route("/produtos/<string:id_produto>", methods=["DELETE"])
 @token_required
-def delete_produto(id_produto):
-    return jsonify(
-        {"message": f"Esta é a rota de deleção do produto com o id {id_produto}"}
+def delete_produto(token, id_produto):
+    try:
+        oid = ObjectId(id_produto)
+    except Exception as e:
+        return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
+
+    try:
+        result = db.produtos.delete_one({"_id": oid})
+    except ValidationError as e:
+        return jsonify({"error": e.errors()}), 400
+    except Exception as e:
+        return jsonify({"error": f"Erro ao deletar produto. {e}"}), 500
+
+    if result.deleted_count == 0:
+        return jsonify({"error": "Produto não encontrado"}), 404
+
+    return (
+        jsonify(
+            {
+                "result": str(result.raw_result),
+                "message": "Produto removido com sucesso",
+            }
+        ),
+        200,
     )
 
 
