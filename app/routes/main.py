@@ -35,8 +35,25 @@ def get_produtos():
 
 # RF: O sistema deve permitir a criacao de um novo produto
 @main_bp.route("/produtos", methods=["POST"])
-def create_produto():
-    return jsonify({"message": "Esta é a rota de criação de produto"})
+@token_required
+def create_produto(token):
+    try:
+        produto = Produto(**request.get_json())
+    except ValidationError as e:
+        return jsonify({"error": e.errors()}), 400
+
+    result = db.produtos.insert_one(produto.model_dump())
+
+    return (
+        jsonify(
+            {
+                "result": str(result),
+                "id": str(result.inserted_id),
+                "message": "Produto criado com sucesso",
+            }
+        ),
+        201,
+    )
 
 
 # RF: O sistema deve permitir a visualizacao dos detalhes de um unico produto
