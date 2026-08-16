@@ -1,12 +1,15 @@
 from flask import Blueprint, jsonify, request, current_app
 from app.models.login_payload import LoginPayload
-from app.models.produto import *
+from app.models.produto import Produto, ProdutoDbModel, UpdateProduto
+from app.models.venda import Venda
 from app.decorators import token_required
 from pydantic import ValidationError
 from app import db
 from bson import ObjectId
 from datetime import datetime, timedelta, timezone
 import jwt
+import csv
+import io
 
 main_bp = Blueprint("main_bp", __name__)
 
@@ -171,5 +174,45 @@ def login():
 
 # RF: O sistema deve permitir a importacao de vendas através de um arquivo
 @main_bp.route("/vendas/upload", methods=["POST"])
-def upload_vendas():
-    return jsonify({"message": "Esta é a rota de upload do arquivo de vendas"})
+@token_required
+def upload_vendas(token):
+    if "file" not in request.files:
+        return jsonify({"error": "Arquivo não foi enviado!"}), 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return jsonify({"error": "Arquivo não foi selecionado"}), 400
+
+    if file and file.filename.endswith(".csv"):
+        csv_stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
+        csv_reader = csv.DictReader(csv_stream)
+
+        vendas_para_inserir = []
+        lista_erros = []
+
+        for row_num, row in enumerate(csv_reader, 1):
+            try:
+                linha = Venda(**row).model_dump(exclude_unset=True)
+                vendas_para_inserir.append(linha)
+            except ValidationError:
+                lista_erros.append(f"Linha {row_num} com dados inválidos")
+            except Exception:
+                lista_erros.append(f"Linha {row_num} com erro inesperado nos dados")
+
+        if vendas_para_inserir:
+            try:
+                db.vendas.insert_many(vendas_para_inserir)
+            except Exception as e:
+                return jsonify({"error": f"Erro ao inserir dados de vendas. {e}"}), 500
+
+    return (
+        jsonify(
+            {
+                "message": "Upload do arquivo de vendas realizado com sucesso",
+                "vendas_importadas": len(vendas_para_inserir),
+                "erros_encontrados": lista_erros,
+            }
+        ),
+        200,
+    )
