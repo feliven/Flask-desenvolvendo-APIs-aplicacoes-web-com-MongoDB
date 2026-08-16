@@ -19,3 +19,12 @@ class ProdutoDbModel(Produto):
         if self.id:
             data["_id"] = str(self.id)
         return data
+
+
+class UpdateProduto(BaseModel):
+    nome: Optional[str] = None
+    preco: Optional[float] = None
+    descricao: Optional[str] = None
+    estoque: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")

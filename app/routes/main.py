@@ -72,19 +72,51 @@ def get_produto_by_id(id_produto):
         )
         return jsonify(produto_model)
     else:
-        return jsonify({"error": f"Produto com id {id_produto} não foi encontrado"})
+        return (
+            jsonify({"error": f"Produto com id {id_produto} não foi encontrado"}),
+            404,
+        )
 
 
 # RF: O sistema deve permitir a atualizacao de um unico produto e produto existente
 @main_bp.route("/produtos/<string:id_produto>", methods=["PUT"])
-def update_produto(id_produto):
-    return jsonify(
-        {"message": f"Esta é a rota de atualizacao do produto com o id {id_produto}"}
+@token_required
+def update_produto(token, id_produto):
+    try:
+        oid = ObjectId(id_produto)
+    except Exception as e:
+        return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
+
+    try:
+        produto_atualizado = UpdateProduto(**request.get_json()).model_dump(
+            exclude_unset=True
+        )
+        result = db.produtos.update_one({"_id": oid}, {"$set": produto_atualizado})
+    except ValidationError as e:
+        return jsonify({"error": e.errors()}), 400
+    except Exception as e:
+        return jsonify({"error": f"Erro ao atualizar produto. {e}"}), 500
+
+    if result.matched_count == 0:
+        return jsonify({"error": "Produto não encontrado"}), 404
+
+    if result.modified_count == 0:
+        return jsonify({"message": "Nenhum produto foi alterado"}), 200
+
+    return (
+        jsonify(
+            {
+                "result": str(result),
+                "message": "Produto atualizado com sucesso",
+            }
+        ),
+        200,
     )
 
 
 # RF: O sistema deve permitir a delecao de um unico produto e produto existente
 @main_bp.route("/produtos/<string:id_produto>", methods=["DELETE"])
+@token_required
 def delete_produto(id_produto):
     return jsonify(
         {"message": f"Esta é a rota de deleção do produto com o id {id_produto}"}
