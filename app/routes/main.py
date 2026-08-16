@@ -33,17 +33,24 @@ def create_produto():
 
 
 # RF: O sistema deve permitir a visualizacao dos detalhes de um unico produto
-@main_bp.route("/produto/<int:id_produto>")
+@main_bp.route("/produtos/<string:id_produto>")
 def get_produto_by_id(id_produto):
-    return jsonify(
-        {
-            "message": f"Esta é a rota de visualizacao do detalhe do id do produto {id_produto}"
-        }
-    )
+    try:
+        oid = ObjectId(id_produto)
+    except Exception as e:
+        return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
+
+    produto = db.produtos.find_one({"_id": oid})
+
+    if produto:
+        produto["_id"] = str(produto["_id"])
+        return jsonify(produto)
+    else:
+        return jsonify({"error": f"Produto com id {id_produto} não foi encontrado"})
 
 
 # RF: O sistema deve permitir a atualizacao de um unico produto e produto existente
-@main_bp.route("/produto/<int:id_produto>", methods=["PUT"])
+@main_bp.route("/produtos/<string:id_produto>", methods=["PUT"])
 def update_produto(id_produto):
     return jsonify(
         {"message": f"Esta é a rota de atualizacao do produto com o id {id_produto}"}
@@ -51,7 +58,7 @@ def update_produto(id_produto):
 
 
 # RF: O sistema deve permitir a delecao de um unico produto e produto existente
-@main_bp.route("/produto/<int:id_produto>", methods=["DELETE"])
+@main_bp.route("/produtos/<string:id_produto>", methods=["DELETE"])
 def delete_produto(id_produto):
     return jsonify(
         {"message": f"Esta é a rota de deleção do produto com o id {id_produto}"}
