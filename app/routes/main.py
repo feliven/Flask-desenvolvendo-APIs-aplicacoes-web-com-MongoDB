@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app.models.login_payload import LoginPayload
+from app.models.produto import *
 from pydantic import ValidationError
 from app import db
 from bson import ObjectId
@@ -17,7 +18,10 @@ def index():
 def get_produtos():
     produtos_cursor = db.produtos.find({})
 
-    lista_produtos = []
+    lista_produtos = [
+        ProdutoDbModel(**produto).model_dump(by_alias=True, exclude_none=True)
+        for produto in produtos_cursor
+    ]
 
     for produtos in produtos_cursor:
         produtos["_id"] = str(produtos["_id"])
@@ -43,8 +47,10 @@ def get_produto_by_id(id_produto):
     produto = db.produtos.find_one({"_id": oid})
 
     if produto:
-        produto["_id"] = str(produto["_id"])
-        return jsonify(produto)
+        produto_model = ProdutoDbModel(**produto).model_dump(
+            by_alias=True, exclude_none=True
+        )
+        return jsonify(produto_model)
     else:
         return jsonify({"error": f"Produto com id {id_produto} não foi encontrado"})
 
