@@ -1,9 +1,12 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from app.models.login_payload import LoginPayload
 from app.models.produto import *
+from app.decorators import token_required
 from pydantic import ValidationError
 from app import db
 from bson import ObjectId
+from datetime import datetime, timedelta, timezone
+import jwt
 
 main_bp = Blueprint("main_bp", __name__)
 
@@ -83,13 +86,17 @@ def login():
         return jsonify({"error": "Erro durante a requisição do dado"}), 500
 
     if user_data.username == "admin" and user_data.password == "123":
-        return jsonify({"message": "Login bem-sucedido!"})
-    else:
-        return jsonify({"message": "Credenciais invalidas!"})
+        token = jwt.encode(
+            {
+                "user_id": user_data.username,
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+            },
+            current_app.config["SECRET_KEY"],
+            algorithm="HS256",
+        )
+        return jsonify({"access_token": token}), 200
 
-    return jsonify(
-        {"message": f"Realizar o login do usuario {user_data.model_dump_json()}"}
-    )
+    return jsonify({"message": "Credenciais invalidas!"})
 
 
 # RF: O sistema deve permitir a importacao de vendas através de um arquivo

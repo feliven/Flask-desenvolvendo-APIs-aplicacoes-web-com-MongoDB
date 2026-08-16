@@ -19,7 +19,7 @@ def token_required(f):
             return jsonify({"error": "Token não encontrado"}), 404
 
         try:
-            jwt.decode(token, current_app.config["SECRET_KEY"])
+            data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expirado"}), 401
         except jwt.InvalidTokenError:
