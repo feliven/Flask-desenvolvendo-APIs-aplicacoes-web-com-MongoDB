@@ -55,7 +55,7 @@ def create_produto(jwt_token):
         data = request.get_json() if request.is_json else request.form.to_dict()
 
         try:
-            produto = Produto(**data)
+            produto = Produto.model_validate(data)
         except ValidationError as e:
             if request.is_json:
                 return jsonify({"error": e.errors()}), 400
