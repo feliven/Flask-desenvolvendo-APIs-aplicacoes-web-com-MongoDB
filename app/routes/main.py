@@ -64,7 +64,7 @@ def create_produto(token):
 def get_produto_by_id(id_produto):
     try:
         oid = ObjectId(id_produto)
-    except Exception as e:
+    except Exception:
         return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
 
     produto = db.produtos.find_one({"_id": oid})
@@ -73,7 +73,7 @@ def get_produto_by_id(id_produto):
         produto_model = ProdutoDbModel(**produto).model_dump(
             by_alias=True, exclude_none=True
         )
-        return jsonify(produto_model)
+        return jsonify(produto_model), 200
     else:
         return (
             jsonify({"error": f"Produto com id {id_produto} não foi encontrado"}),
@@ -87,7 +87,7 @@ def get_produto_by_id(id_produto):
 def update_produto(token, id_produto):
     try:
         oid = ObjectId(id_produto)
-    except Exception as e:
+    except Exception:
         return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
 
     try:
@@ -123,7 +123,7 @@ def update_produto(token, id_produto):
 def delete_produto(token, id_produto):
     try:
         oid = ObjectId(id_produto)
-    except Exception as e:
+    except Exception:
         return jsonify({"error": "Erro ao converter ID para ObjectID"}), 500
 
     try:
@@ -155,7 +155,7 @@ def login():
         user_data = LoginPayload(**raw_data)
     except ValidationError as e:
         return jsonify({"error": e.errors()}), 400
-    except Exception as e:
+    except Exception:
         return jsonify({"error": "Erro durante a requisição do dado"}), 500
 
     if user_data.username == "admin" and user_data.password == "123":
@@ -169,7 +169,7 @@ def login():
         )
         return jsonify({"access_token": token}), 200
 
-    return jsonify({"message": "Credenciais invalidas!"})
+    return jsonify({"message": "Credenciais inválidas!"}), 401
 
 
 # RF: O sistema deve permitir a importacao de vendas através de um arquivo
@@ -181,30 +181,36 @@ def upload_vendas(token):
 
     file = request.files["file"]
 
-    if file.filename == "":
+    # if not file.filename or file.filename == "":
+    if not file.filename:
         return jsonify({"error": "Arquivo não foi selecionado"}), 400
 
-    if file and file.filename.endswith(".csv"):
-        csv_stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
-        csv_reader = csv.DictReader(csv_stream)
+    if not file.filename.endswith(".csv"):
+        return (
+            jsonify({"error": "Formato de arquivo inválido. Apenas .csv é aceito."}),
+            400,
+        )
 
-        vendas_para_inserir = []
-        lista_erros = []
+    csv_stream = io.StringIO(file.stream.read().decode("UTF-8"), newline=None)
+    csv_reader = csv.DictReader(csv_stream)
 
-        for row_num, row in enumerate(csv_reader, 1):
-            try:
-                linha = Venda(**row).model_dump(exclude_unset=True)
-                vendas_para_inserir.append(linha)
-            except ValidationError:
-                lista_erros.append(f"Linha {row_num} com dados inválidos")
-            except Exception:
-                lista_erros.append(f"Linha {row_num} com erro inesperado nos dados")
+    vendas_para_inserir = []
+    lista_erros = []
 
-        if vendas_para_inserir:
-            try:
-                db.vendas.insert_many(vendas_para_inserir)
-            except Exception as e:
-                return jsonify({"error": f"Erro ao inserir dados de vendas. {e}"}), 500
+    for row_num, row in enumerate(csv_reader, 1):
+        try:
+            linha = Venda.model_validate(row).model_dump(exclude_unset=True)
+            vendas_para_inserir.append(linha)
+        except ValidationError:
+            lista_erros.append(f"Linha {row_num} com dados inválidos")
+        except Exception:
+            lista_erros.append(f"Linha {row_num} com erro inesperado nos dados")
+
+    if vendas_para_inserir:
+        try:
+            db.vendas.insert_many(vendas_para_inserir)
+        except Exception as e:
+            return jsonify({"error": f"Erro ao inserir dados de vendas. {e}"}), 500
 
     return (
         jsonify(
