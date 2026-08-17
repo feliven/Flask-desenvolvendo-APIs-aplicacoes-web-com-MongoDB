@@ -222,3 +222,17 @@ def upload_vendas(token):
         ),
         200,
     )
+
+
+@main_bp.route("/vendas")
+@token_required
+def get_vendas(token):
+    vendas_cursor = db.vendas.find({})
+
+    lista_vendas = [Venda(**venda).model_dump() for venda in vendas_cursor]
+
+    for vendas in vendas_cursor:
+        vendas["_id"] = str(vendas["_id"])
+        lista_vendas.append(vendas)
+
+    return jsonify(lista_vendas)
