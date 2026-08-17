@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, session
 import jwt
 
 
@@ -15,11 +15,16 @@ def token_required(f):
             except IndexError:
                 return jsonify({"message": "Token malformado"}), 401
 
+        elif "jwt_token" in session:
+            token = session["jwt_token"]
+
         if not token:
             return jsonify({"error": "Token não encontrado"}), 404
 
         try:
-            data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
+            data = jwt.decode(
+                token, current_app.config["SECRET_KEY"], algorithms=["HS256"]
+            )
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expirado"}), 401
         except jwt.InvalidTokenError:
